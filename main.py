@@ -3,14 +3,16 @@ from player import Player
 import numpy as np
 import pandas as pd
 
-rng = np.random.default_rng(seed=4)  # Zufallszahlengenerator mit Seed
+rng = np.random.default_rng(seed=42)  # Zufallszahlengenerator mit Seed
 
 colors = ["red", "green", "blue", "yellow"]
 
 spielerliste = [
 Player("Gregor_samsa", 0, []),
 Player( "Billy_Bonka", 0, []),
-Player("Testo_Torsten", 0, [])
+Player("Testo_Torsten", 0, []),
+#Player("Yakari", 0, []),
+#Player("halwa", 0, []),
 ]
 
 def karten_mischen():
@@ -25,7 +27,7 @@ def karten_mischen():
 
 def wie_viele_runden_spielen_wir(spieler_anzahl):
     if spieler_anzahl == 3:
-        return 9
+        return 20
     if spieler_anzahl == 4:
         return 15
     if spieler_anzahl == 5:
@@ -91,7 +93,7 @@ def print_tabelle(tabelle: pd.DataFrame):
 
 #SPIELLOGIK
 
-def spiele_runde(spielerliste, runde, trumpf, tabelle, anzahl_runden):
+def spiele_runde(runde, trumpf, tabelle, anzahl_runden):
 
     runden_daten = {}
 
@@ -104,7 +106,7 @@ def spiele_runde(spielerliste, runde, trumpf, tabelle, anzahl_runden):
         print("-----")
 
 
-        anzahl_angesagte_stiche = karten_bewerten(spieler.karten_auf_der_hand, trumpf, 1.5)
+        anzahl_angesagte_stiche = karten_bewerten(spieler.karten_auf_der_hand, trumpf, 2)
         print(f" -> Angesagte Stiche: {anzahl_angesagte_stiche}")
 
         runden_daten[spieler.name] = [
@@ -151,7 +153,7 @@ def spiele_runde(spielerliste, runde, trumpf, tabelle, anzahl_runden):
     #Gesamtsumme hinzufügen, falls es die letzte Runde war
     if runde == anzahl_runden:
         tabelle, gesamt_punkte = berechne_gesamtpunkte(tabelle)
-        print("\n🏆 ENDSTAND DES SPIELS (inkl. GESAMT) 🏆")
+        print("\n ENDSTAND DES SPIELS (inkl. GESAMT) 🏆")
         print_tabelle(tabelle)
         gewinner, punkte = gewinner_des_spiels(gesamt_punkte)
         print(f" -> Gewinner ist: {gewinner} mit {punkte} Punkten.")
@@ -164,7 +166,7 @@ def spiele_runde(spielerliste, runde, trumpf, tabelle, anzahl_runden):
     return tabelle
 
 
-def starte_spiel(spielerliste, startrunde=1):
+def starte_spiel(startrunde=1):
 
     runden_anzahl = wie_viele_runden_spielen_wir(len(spielerliste))
     spieler_namen_str = [spieler.name for spieler in spielerliste]
@@ -180,23 +182,23 @@ def starte_spiel(spielerliste, startrunde=1):
         karten = karten_mischen()
 
         # Kartenausteilen und Trumpf bestimmen
-        restkarten = teile_karten_aus(karten, runde, spielerliste)
+        restkarten = teile_karten_aus(karten, runde)
 
         trumpf = bestimme_trumpf(restkarten, runde)
 
 
-        print(f"📢 Startspieler: {spielerliste[runde % len(spielerliste) - 1]}")
-        print(f"👑 Trumpffarbe: {trumpf} | {runde} Karten pro Spieler")
+        print(f" Startspieler: {spielerliste[runde % len(spielerliste) - 1]}")
+        print(f" Trumpffarbe: {trumpf} | {runde} Karten pro Spieler")
 
 
-        tabelle = spiele_runde(spielerliste, runde, trumpf, tabelle, runden_anzahl)
+        tabelle = spiele_runde(runde, trumpf, tabelle, runden_anzahl)
 
 
     print("\n Das Spiel ist vorbei.")
 
 
 
-def teile_karten_aus(karten, anzahl_karten, spielerliste):
+def teile_karten_aus(karten, anzahl_karten):
     for i in range(anzahl_karten):
         for spieler in spielerliste:
             oberste_karte = karten.pop(0)
@@ -205,7 +207,10 @@ def teile_karten_aus(karten, anzahl_karten, spielerliste):
     return karten
 
 def bestimme_trumpf(restkarten, runde):
-    trumpf_karte = restkarten[0]  # oberste Karte aufdecken
+    if restkarten:
+        trumpf_karte = restkarten[0]  # oberste Karte aufdecken
+    else:
+        return None
 
     if trumpf_karte.color in colors:
         trumpf_farbe = trumpf_karte.color
@@ -222,7 +227,7 @@ def bestimme_trumpf(restkarten, runde):
             if farbe:                                                   #ki
                haeufigkeiten[farbe] = haeufigkeiten.get(farbe,0) + 1
 
-#Ersatztrumpf für Zauberer finden --> häufigste Farbe bei aggressiven Spielstil
+        #Ersatztrumpf für Zauberer finden --> häufigste Farbe bei aggressiven Spielstil
         if haeufigkeiten:
            trumpf_farbe = max(haeufigkeiten, key=haeufigkeiten.get)  #ki
 
@@ -231,6 +236,7 @@ def bestimme_trumpf(restkarten, runde):
     return trumpf_farbe
 
 def karten_bewerten(karten, trumpf_farbe, bewertungs_grenze):
+    anzahl_spieler = len(spielerliste)
     anzahl_stiche = 0
     anzahl_karten = len(karten)
     score = 0
@@ -238,16 +244,41 @@ def karten_bewerten(karten, trumpf_farbe, bewertungs_grenze):
     for karte in karten:
 
         if karte.value == 14:
-            score += 2
+            score += 2.1
 
         elif trumpf_farbe == None:
-            score += (1.5 * karte.value) / anzahl_karten
+            if anzahl_spieler > 3:
+                if anzahl_karten < 6:
+                    score += karte.value / (1.25 * anzahl_karten)
+                else:
+                    score += (1.25 * karte.value) / anzahl_karten
+            elif anzahl_karten < 6:
+                score += karte.value / (1. * anzahl_karten)
+            else:
+                score += (1.75 * karte.value) / anzahl_karten
+
 
         elif karte.color == trumpf_farbe:
-            score += karte.value / anzahl_karten
+            if anzahl_spieler > 3:
+                if anzahl_karten < 6:
+                    score += karte.value / (1.5 * anzahl_karten)
+                else: score += (1.15 * karte.value) / anzahl_karten
+            elif anzahl_karten < 6:
+                score += karte.value / (1.25 * anzahl_karten)
+            else:
+                score += (1.5 * karte.value) / anzahl_karten
+
 
         else:
-            score += karte.value / (anzahl_karten * 2)
+            if anzahl_spieler > 3:
+                if anzahl_karten < 6:
+                    score += karte.value / (2.25 * anzahl_karten)
+                else:
+                    score += karte.value / (1.75 * anzahl_karten)
+            elif anzahl_karten < 6:
+                score += karte.value / (2 * anzahl_karten)
+            else:
+                score += (1.25 * karte.value) / (1 * anzahl_karten)
 
         #print(f'karte {karte}, score {score_karte}')
 
@@ -256,15 +287,12 @@ def karten_bewerten(karten, trumpf_farbe, bewertungs_grenze):
             score = 0
 
     return anzahl_stiche
-
-
-
-
-
-
+# ----------
+#
 def spiele_stich(spielerliste, start_spieler_index, trumpf_farbe, tabelle):
     stich_karten = {}
     bedien_farbe = ""
+    gewinn_karte, gewinn_spieler = 1, 2
 
     for i in range(len(spielerliste)):
 
@@ -277,6 +305,8 @@ def spiele_stich(spielerliste, start_spieler_index, trumpf_farbe, tabelle):
         #prüfen, welche höchste karte ist und , ob meine ggf größer
         hoechste_karte = bestimme_hoechste_karte(stich_karten, bedien_farbe, trumpf_farbe)
         gelegte_karte = schlaue_karte_auswaehlen(moegliche_karten, hoechste_karte, bedien_farbe, trumpf_farbe)
+
+       # if gelegte_karte. > gewinn_karte:
 
         aktiver_spieler.karten_auf_der_hand.remove(gelegte_karte)
         stich_karten[aktiver_spieler.name] = gelegte_karte
@@ -422,6 +452,7 @@ def bestimme_hoechste_karte(stich_karten, bedien_farbe, trumpf_farbe):
             return hoechste_karte
 
         hoechste_karte = 0
+        return hoechste_karte
 
     return None
 
@@ -439,4 +470,4 @@ def wie_viele_gemachte_stiche(spieler, stichgewinner):
 
 
 
-starte_spiel(spielerliste,1)
+starte_spiel(1)
