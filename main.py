@@ -2,6 +2,12 @@ from card import Card
 from player import Player
 import numpy as np
 import pandas as pd
+import math
+
+pd.set_option('display.max_columns', None)          # Verhindert, dass Spalten mit "..." abgekürzt werden
+pd.set_option('display.width', 5000)                # Erlaubt eine sehr breite Darstellung im Terminal
+pd.set_option('display.colheader_justify', 'center') # Zentriert die Überschriften über den Daten
+
 
 rng = np.random.default_rng(seed=42)  # Zufallszahlengenerator mit Seed
 
@@ -11,8 +17,8 @@ spielerliste = [
 Player("Gregor_samsa", 0, [], spielstil="normal"),
 Player( "Billy_Bonka", 0, [], spielstil="normal"),
 Player("Testo_Torsten", 0, [], spielstil="aggressiv"),
-#Player("Yakari", 0, []),
-#Player("halwa", 0, []),
+Player("Yakari", 0, [], spielstil="normal"),
+Player("Crazy8", 0, [], spielstil="normal"),
 ]
 
 gewinner_liste = []
@@ -50,7 +56,7 @@ def erstelle_punkte_tabelle(spieler_namen: list[str]) -> pd.DataFrame:
     # Explizite Typ-Konvertierung, um NaN zu vermeiden
     return punkte_tabelle.astype('int64')
 
-
+#ki
 def fuege_runde_punkte_hinzu(punkte_tabelle: pd.DataFrame, runden_nummer: int,
                              runden_daten: dict[str, list[int]]) -> pd.DataFrame:
     """
@@ -106,7 +112,7 @@ def spiele_runde(runde, trumpf, tabelle, anzahl_runden):
         #print("-----")
 
 
-        anzahl_angesagte_stiche = karten_bewerten(spieler.karten_auf_der_hand, trumpf, spieler.bewertungs_grenze)
+        anzahl_angesagte_stiche = karten_bewerten(spieler.karten_auf_der_hand, trumpf, runde, spieler.spielstil)
         #print(f" -> Angesagte Stiche: {anzahl_angesagte_stiche}")
 
         runden_daten[spieler.name] = [
@@ -179,13 +185,12 @@ def starte_spiel(startrunde=1):
     for runde in range(startrunde, runden_anzahl + 1):
         #print(f"\n====================== RUNDE {runde} ======================")
 
+        #karten mischen
         karten = karten_mischen()
 
         # Kartenausteilen und Trumpf bestimmen
         restkarten = teile_karten_aus(karten, runde)
-
         trumpf = bestimme_trumpf(restkarten, runde)
-
 
         #print(f" Startspieler: {spielerliste[runde % len(spielerliste) - 1]}")
         #print(f" Trumpffarbe: {trumpf} | {runde} Karten pro Spieler")
@@ -219,62 +224,74 @@ def bestimme_trumpf(restkarten, runde):
         trumpf_farbe = None
 
     elif trumpf_karte.value == 14:
-        haeufigkeiten = {}
+        haeufigkeiten = {farbe: 0 for farbe in colors}
         start_spieler = spielerliste[(runde % len(spielerliste)) - 1]
+
 
         for karte in start_spieler.karten_auf_der_hand:
             farbe = karte.color
-            if farbe:                                                   #ki
+            if farbe in colors:                                                   #ki
                haeufigkeiten[farbe] = haeufigkeiten.get(farbe,0) + 1
 
         #Ersatztrumpf für Zauberer finden --> häufigste Farbe bei aggressiven Spielstil
-        if haeufigkeiten:
-           trumpf_farbe = max(haeufigkeiten, key=haeufigkeiten.get)  #ki
 
-        else: trumpf_farbe = {rng.choice(colors)}
+        if start_spieler.spielstil == "aggressiv":
+            trumpf_farbe = max(haeufigkeiten, key=haeufigkeiten.get)  #ki
+        else: trumpf_farbe = min(haeufigkeiten, key=haeufigkeiten.get)
 
     return trumpf_farbe
 
 
-def karten_bewerten(karten, trumpf_farbe, bewertungs_grenze=1.2):
+def karten_bewerten(karten, trumpf_farbe, runde, spielstil):
     anzahl_spieler = len(spielerliste)
-    anzahl_karten = len(karten)
-    anzahl_stiche = 0
-    total_score = 0
+    total_prob = 0
 
     for karte in karten:
-        score_karte = 0
+        prob = 0  # Wahrscheinlichkeit, dass diese Karte einen Stich macht
 
-        # 1. Zauberer: Immer ein starker Score
+        # 1. Zauberer: Fast sicher ein Stich
         if karte.value == 14:
-            score_karte = 1.0  # Ein Zauberer ist fast immer 1 Stich
+            prob = 0.95
 
-        # 2. Narren: Tragen nichts zum Score bei (0)
+            # 2. Narren: Fast nie ein Stich
         elif karte.value == 0:
-            score_karte = 0
+            prob = 0.05
 
         # 3. Trumpf-Karten
         elif karte.color == trumpf_farbe:
-            # Trumpf ist stärker, wenn man weniger Karten hat (kurze Runden)
-            # Aber in hohen Runden sind hohe Trümpfe fast sichere Stiche
-            score_karte = (karte.value / 13) * 0.9
-            if karte.value > 10: score_karte += 0.2  # Bonus für hohe Trümpfe
+            # Wertigkeit im Verhältnis zu den Spielern
+            prob = (karte.value / 13) * 0.8
+            if karte.value > 10: prob += 0.15
 
         # 4. Normale Farben
         else:
-            basis_wert = (karte.value / 13)
+            # Je mehr Spieler, desto wahrscheinlicher wird die Farbe gestochen (Trumpf oder höher)
+            basis_prob = (karte.value / 13)
+            # Risiko-Skalierung: Bei vielen Spielern sinkt die Chance einer normalen Karte extrem
+            spieler_malus = 0.8 ** (anzahl_spieler - 1)
+            prob = basis_prob * spieler_malus
 
-            if trumpf_farbe is None:
-                # Kein Trumpf: Hohe Zahlen sind sehr stark
-                score_karte = basis_wert * 0.8
-            else:
-                risiko_faktor = 0.5 if anzahl_spieler > 3 else 0.7
-                score_karte = basis_wert * risiko_faktor
+            # In hohen Runden (viele Karten) werden kleine Zahlen wertlos
+            if runde > 5 and karte.value < 8:
+                prob *= 0.5
 
-        total_score += score_karte
+        total_prob += prob
+
+    # Wir runden mathematisch (0.5 wird aufgerundet), statt nur abzuschneiden
+    anzahl_stiche = round(total_prob)
+
+    # Sicherstellen, dass in Runde 1 bei einer starken Karte mindestens 1 geboten wird
+    if runde == 1 and total_prob > 0.4:
+        return 1
 
 
-    anzahl_stiche = int(total_score / bewertungs_grenze)
+    if spielstil == "aggressiv":
+        # Ein aggressiver Spieler braucht nur 0.3 "Zusatz-Wahrscheinlichkeit" für den nächsten Stich
+        # Er bietet bei 2.3 schon 3 Stiche
+        anzahl_stiche = math.floor(total_prob + 0.7)
+    else:
+        # Normales Runden
+        anzahl_stiche = round(total_prob)
 
     return anzahl_stiche
 
@@ -466,14 +483,16 @@ def spiele_spielen(anzahl_spiele):
     for i in range (anzahl_spiele):
         starte_spiel(1)
 
-anzahl_spiele = int(input())
-spiele_spielen(anzahl_spiele)
 
 def gewinn_wahrscheinlichkeiten(gewinner_liste, anzahl_spiele):
-    anzahl_wahrscheinlichkeiten = {}
+    spieler_gewinn_wahrscheinlichkeiten = {}
     for spieler in spielerliste:
-        anzahl_wahrscheinlichkeiten[spieler] = gewinner_liste.count(spieler.name) / anzahl_spiele
-    print(anzahl_wahrscheinlichkeiten)
+        spieler_gewinn_wahrscheinlichkeiten [spieler] = gewinner_liste.count(spieler.name) / anzahl_spiele
+    print(f" Für {anzahl_spiele} Spiele sind das die Gewinnwahrscheinlichkeiten der Spieler: {spieler_gewinn_wahrscheinlichkeiten}")
+
+
+anzahl_spiele = int(input())
+spiele_spielen(anzahl_spiele)
 
 gewinn_wahrscheinlichkeiten(gewinner_liste, anzahl_spiele)
 
