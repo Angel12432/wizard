@@ -1,24 +1,24 @@
-# 🧙 Wizard-Simulationsprojekt: Aggressives Spielverhalten
+# 🧙 Wizard simulation project: Aggressive playing behavior
 
-Dieses Repository enthält ein Python-Programm zur **Simulation des Kartenspiels Wizard**, um die Erfolgsquote einer aggressiven Spielstrategie zu untersuchen.
+This repository contains a Python program for **simulating the card game Wizard** in order to investigate the success rate of an aggressive playing strategy.
 
-Die Simulation spielt 100 vollständige Spiele. Dabei folgt ein spezifischer Spieler durchgehend einer aggressiven Spielweise. Die Konsole gibt am Ende die Gewinnhäufigkeit in Prozent des aggressiven Spielers aus.
+The simulation plays 1000 complete games. One specific player consistently follows an aggressive playing style. At the end, the console displays the aggressive player's win rate as a percentage.
 
 ---
 
-🚀 Installation & Ausführung
+🚀 Installation & Execution
 
-1. Klonen des Repositories
+1. Clone the repository
 
 git clone [https://github.com/Ihr-Benutzername/Ihr-Repository-Name.git](https://github.com/Ihr-Benutzername/Ihr-Repository-Name.git)
-cd Ihr-Repository-Name
+cd Your-repository-name
 
-2. Voraussetzungen
+2. Requirements
    
-Das Projekt benötigt Python 3.x und die folgenden externen Bibliotheken, die Sie über pip installieren können:
+The project requires Python 3.x and the following external libraries, which you can install via pip:
 numpy, pandas
 
-3. Simulation starten
+3. Start simulation
 
-Führen Sie die Hauptdatei aus:
+Run the main file:
 main.py

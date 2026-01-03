@@ -1,14 +1,10 @@
 class Player:
-    def __init__(self, name, points, karten_auf_der_hand, spielstil="normal"):
+    def __init__(self, name, points, cards_in_hand, playing_style="normal"):
         self.name = name
         self.points = points
-        self.karten_auf_der_hand = karten_auf_der_hand
-        self.spielstil = spielstil
-        stile = {
-            "aggressiv": 0.9,
-            "normal": 1.1
-        }
-        self.bewertungs_grenze = stile.get(spielstil, 1.1)
+        self.cards_in_hand = cards_in_hand
+        self.playing_style = playing_style
+
 
     def __str__(self):
         return f'{self.name}'

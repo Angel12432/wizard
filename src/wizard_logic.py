@@ -16,452 +16,440 @@ rng = np.random.default_rng(seed=42)  # Zufallszahlengenerator mit Seed
 
 colors = ["red", "green", "blue", "yellow"]
 
-def lade_spieler_aus_config():
+def load_player_from_config():
     # 1. Die passive Textdatei öffnen
     with open("configs/players.json", "r", encoding="utf-8") as f:
-        daten = json.load(f)  # Macht aus dem Text ein Dictionary
+        data = json.load(f)  # Macht aus dem Text ein Dictionary
 
     # 2. Aus dem Text echte Python-Objekte bauen
-    spieler_objekte = []
-    for s in daten["spieler"]:
+    player_objects = []
+    for s in data["player"]:
         # Hier rufen wir deine Player-Klasse auf
-        neuer_spieler = Player(s["name"], 0, [], spielstil=s["spielstil"])
-        spieler_objekte.append(neuer_spieler)
+        new_player = Player(s["name"], 0, [], playing_style=s["playing_style"])
+        player_objects.append(new_player)
 
-    return spieler_objekte
+    return player_objects
 
 
 
-gewinner_liste = []
+winner_list = []
 
-def karten_mischen():
-    karten = []
+def shuffle_cards():
+    cards = []
     for color in colors:
-        karten.append(Card("",14))
-        karten.append(Card("", 0))
+        cards.append(Card("", 14))
+        cards.append(Card("", 0))
         for value in range(13):
-            karten.append(Card(color, value+1))
-    rng.shuffle(karten)
-    return karten
-
-def wie_viele_runden_spielen_wir(spieler_anzahl):
-    if spieler_anzahl == 3:
-        return 20
-    if spieler_anzahl == 4:
-        return 15
-    if spieler_anzahl == 5:
-        return 12
-
-    print("unzulaessige Spieleranzahl")
-    return 0
+            cards.append(Card(color, value + 1))
+    rng.shuffle(cards)
+    return cards
 
 
-def erstelle_punkte_tabelle(spieler_namen: list[str]) -> pd.DataFrame:
+def number_of_rounds_to_be_played(number_of_playerss):
+    return 60 // number_of_playerss
+
+
+def create_points_table(player_namen: list[str]) -> pd.DataFrame:
     """
-    Erstellt eine leere Pandas DataFrame für die Punkte-Tabelle des Wizard-Spiels.
+    Creates an empty Pandas DataFrame for the points table.
     """
-    spalten = pd.MultiIndex.from_product([spieler_namen, ['Angesagt', 'Gemacht', 'Punkte']],
-                                         names=['Spieler', 'Kategorie'])
-    punkte_tabelle = pd.DataFrame(columns=spalten)
-    punkte_tabelle.index.name = 'Runde'
+    columns = pd.MultiIndex.from_product([player_namen, ["announced_tricks", "tricks_made", "points"]],
+                                         names=['player', 'category'])
+    points_table = pd.DataFrame(columns=columns)
+    points_table.index.name = 'round'
     # Explizite Typ-Konvertierung, um NaN zu vermeiden
-    return punkte_tabelle.astype('int64')
+    return points_table.astype('int64')
 
 #ki
-def fuege_runde_punkte_hinzu(punkte_tabelle: pd.DataFrame, runden_nummer: int,
-                             runden_daten: dict[str, list[int]]) -> pd.DataFrame:
+def add_points(points_table: pd.DataFrame, round_number: int,
+               round_data: dict[str, list[int]]) -> pd.DataFrame:
     """
-    Fügt die Ergebnisse einer Spielrunde zur Punkte-Tabelle hinzu.
+    Adds the results of a game round to the points table.
     """
-    neue_runde = {}
-    for spieler, daten in runden_daten.items():
-        neue_runde[(spieler, 'Angesagt')] = daten[0]
-        neue_runde[(spieler, 'Gemacht')] = daten[1]
-        neue_runde[(spieler, 'Punkte')] = daten[2]
-    punkte_tabelle.loc[runden_nummer] = neue_runde
-    return punkte_tabelle
+    new_round = {}
+    for player, daten in round_data.items():
+        new_round[(player, 'announced_tricks')] = daten[0]
+        new_round[(player, "tricks_made")] = daten[1]
+        new_round[(player, 'points')] = daten[2]
+    points_table.loc[round_number] = new_round
+    return points_table
 
 
-def berechne_gesamtpunkte(tabelle: pd.DataFrame) -> pd.DataFrame:
+def calculate_total_points(table: pd.DataFrame) -> pd.DataFrame:
     """
-    Fügt eine Zeile 'GESAMT' hinzu, welche die Summe aller 'Punkte' für jeden Spieler enthält.
+    Adds a row ‘total’ containing the sum of all ‘points’ for each player.
     """
-    gesamt_punkte_reihe = tabelle.xs('Punkte', level='Kategorie', axis=1).sum(axis=0)
-    gesamt_reihe = {}
-    for spieler in tabelle.columns.get_level_values('Spieler').unique():
-        gesamt_reihe[(spieler, 'Angesagt')] = 0
-        gesamt_reihe[(spieler, 'Gemacht')] = 0
-        gesamt_reihe[(spieler, 'Punkte')] = gesamt_punkte_reihe[spieler]
-        #gewinner_des_spiels(gesamt_reihe[(spieler, 'Punkte')])
-    tabelle.loc['GESAMT'] = gesamt_reihe
-    return tabelle, gesamt_punkte_reihe
+    total_points_row = table.xs('points', level='category', axis=1).sum(axis=0)
+    total_row = {}
+    for player in table.columns.get_level_values('player').unique():
+        total_row[(player, 'announced_tricks')] = 0
+        total_row[(player, "tricks_made")] = 0
+        total_row[(player, 'points')] = total_points_row[player]
+        #winner_of_the_game(total_row[(player, 'points')])
+    table.loc['total'] = total_row
+    return table, total_points_row
 
-def gewinner_des_spiels(gesamt_reihe):
-    gewinner = gesamt_reihe.idxmax()
-    punkte = gesamt_reihe.max()
-    gewinner_liste.append(gewinner)
-    return gewinner, punkte
+def winner_of_the_game(total_row):
+    winner = total_row.idxmax()
+    points = total_row.max()
+    winner_list.append(winner)
+    return winner, points
 
 
-def print_tabelle(tabelle: pd.DataFrame):
-    #Gibt die Pandas Punkte-Tabelle lesbar in der Konsole aus.
-    print(tabelle.to_string())
+def print_table(table: pd.DataFrame):
+    #Gibt die Pandas points-table lesbar in der Konsole aus.
+    print(table.to_string())
 
 
 #SPIELLOGIK
 
-def spiele_runde(runde, trumpf, tabelle, anzahl_runden, spielerliste):
+def play_round(current_round, trump_color, table, number_of_rounds, playerlist):
 
-    runden_daten = {}
+    round_data = {}
 
-    #Kartenausgabe & Ansagen
-    for spieler in spielerliste:
+    #cardsausgabe & Ansagen
+    for player in playerlist:
         #print("-----")
-        #print(f"Spieler: {spieler.name}")
+        #print(f"player: {player.name}")
 
-        #print(f"Karten auf der Hand ({len(spieler.karten_auf_der_hand)}): {spieler.karten_auf_der_hand}")
+        #print(f"cards auf der Hand ({len(player.cards_in_hand)}): {player.cards_in_hand}")
         #print("-----")
 
 
-        anzahl_angesagte_stiche = karten_bewerten(spieler.karten_auf_der_hand, trumpf, spielerliste, runde, spieler.spielstil)
-        #print(f" -> Angesagte Stiche: {anzahl_angesagte_stiche}")
+        number_of_announced_tricks = evaluate_cards(player.cards_in_hand, trump_color, playerlist, current_round, player.playing_style)
+        #print(f" -> announced_trickse tricks: {number_of_announced_tricks}")
 
-        runden_daten[spieler.name] = [
-            anzahl_angesagte_stiche, 0, 0
+        round_data[player.name] = [
+            number_of_announced_tricks, 0, 0
         ]
-        # Vorläufiges Speichern der Ansagen, damit spiele_stich darauf zugreifen kann
-        tabelle = fuege_runde_punkte_hinzu(tabelle, runde, runden_daten)
+        # Vorläufiges Speichern der Ansagen, damit play_trick darauf zugreifen kann
+        table = add_points(table, current_round, round_data)
 
 
-    stich_gewinner = []
+    trick_winner = []
 
-    stiche_dieser_runde = {spieler.name: 0 for spieler in spielerliste}
-    start_spieler_index = (runde % len(spielerliste)) - 1
+    number_of_tricks_in_round = {player.name: 0 for player in playerlist}
+    starting_player_index = (current_round % len(playerlist)) - 1
 
-    for i in range(runde):
+    for i in range(current_round):
 
-        gewinner = spiele_stich(spielerliste, start_spieler_index, trumpf, runde, tabelle, stiche_dieser_runde)
+        winner = play_trick(playerlist, starting_player_index, trump_color, current_round, table, number_of_tricks_in_round)
 
-        stich_gewinner.append(gewinner)
-        stiche_dieser_runde[gewinner] += 1
+        trick_winner.append(winner)
+        number_of_tricks_in_round[winner] += 1
 
-        #bestimmt Index des letzten Gewinners
-        gewinner_letzte_runde = next(
-            (spieler for spieler in spielerliste if spieler.name == gewinner))
-        start_spieler_index = spielerliste.index(gewinner_letzte_runde)
+        #bestimmt Index des letzten winners
+        trick_winner_last_round = next(
+            (player for player in playerlist if player.name == winner))
+        starting_player_index = playerlist.index(trick_winner_last_round)
 
 
-    for spieler in spielerliste:
-        anzahl_gemachte_stiche = wie_viele_gemachte_stiche(spieler, stich_gewinner)
-        anzahl_angesagte_stiche_alt = runden_daten[spieler.name][0]
-        runden_daten[spieler.name] = [anzahl_angesagte_stiche_alt, anzahl_gemachte_stiche, 0]
+    for player in playerlist:
+        number_of_tricks_made = number_of_made_tricks(player, trick_winner)
+        number_of_announced_tricks_alt = round_data[player.name][0]
+        round_data[player.name] = [number_of_announced_tricks_alt, number_of_tricks_made, 0]
 
 
 
     #Daten abspeichern
-    for spieler, daten in runden_daten.items():
-        anzahl_angesagte_stiche = daten[0]
-        anzahl_gemachte_stiche = daten[1]
+    for player, daten in round_data.items():
+        number_of_announced_tricks = daten[0]
+        number_of_tricks_made = daten[1]
 
 
-        if anzahl_angesagte_stiche == anzahl_gemachte_stiche:
-            punkte = 20 + anzahl_gemachte_stiche * 10
+        if number_of_announced_tricks == number_of_tricks_made:
+            points = 20 + number_of_tricks_made * 10
         else:
-            punkte = (abs(anzahl_angesagte_stiche - anzahl_gemachte_stiche)) * (-10)
+            points = (abs(number_of_announced_tricks - number_of_tricks_made)) * (-10)
 
-        runden_daten[spieler] = [anzahl_angesagte_stiche, anzahl_gemachte_stiche, punkte]
+        round_data[player] = [number_of_announced_tricks, number_of_tricks_made, points]
 
-    #Tabelle füllen und ausgeben
+    #table füllen und ausgeben
 
-    tabelle = fuege_runde_punkte_hinzu(tabelle, runde, runden_daten)
-    tabelle = tabelle.fillna(0).astype(int)
+    table = add_points(table, current_round, round_data)
+    table = table.fillna(0).astype(int)
 
-    #Gesamtsumme hinzufügen, falls es die letzte Runde war
-    if runde == anzahl_runden:
-        tabelle, gesamt_punkte = berechne_gesamtpunkte(tabelle)
-        #print("\n ENDSTAND DES SPIELS (inkl. GESAMT) 🏆")
-        print_tabelle(tabelle)
-        gewinner, punkte = gewinner_des_spiels(gesamt_punkte)
-        #print(f" -> Gewinner ist: {gewinner} mit {punkte} Punkten.")
+    #totalsumme hinzufügen, falls es die letzte round war
+    if current_round == number_of_rounds:
+        table, total_points = calculate_total_points(table)
+        #print("\n ENDSTAND DES SPIELS (inkl. total) 🏆")
+        #print_table(table)
+        winner, points = winner_of_the_game(total_points)
+        #print(f" -> winner ist: {winner} mit {points} pointsn.")
     #else:
         #print("\n-----------"
-        #    f"ERGEBNISSE NACH RUNDE {runde}"
+        #    f"ERGEBNISSE NACH round {round}"
          #   "-----------")
-        #print_tabelle(tabelle)
+        #print_table(table)
 
-    return tabelle
+    return table
 
 
-def starte_spiel(startrunde, spielerliste):
+def start_game(starting_round, playerlist):
 
-    runden_anzahl = wie_viele_runden_spielen_wir(len(spielerliste))
-    spieler_namen_str = [spieler.name for spieler in spielerliste]
-    tabelle = erstelle_punkte_tabelle(spieler_namen_str)
+    round_number = number_of_rounds_to_be_played(len(playerlist))
+    player_namen_str = [player.name for player in playerlist]
+    table = create_points_table(player_namen_str)
 
     #print("\n===========================================")
-    #print(f"🃏 STARTE WIZARD-SPIEL mit {runden_anzahl} Runden 🃏")
+    #print(f" STARTE WIZARD-SPIEL mit {round_number} roundn")
     #print("===========================================")
 
-    for runde in range(startrunde, runden_anzahl + 1):
-        #print(f"\n====================== RUNDE {runde} ======================")
+    for current_round in range(starting_round, round_number + 1):
+        #print(f"\n====================== round {round} ======================")
 
-        #karten mischen
-        karten = karten_mischen()
+        #shuffle cards
+        cards = shuffle_cards()
 
-        # Kartenausteilen und Trumpf bestimmen
-        restkarten = teile_karten_aus(karten, runde, spielerliste)
-        trumpf = bestimme_trumpf(restkarten, runde, spielerliste)
+        # cardsausteilen und Trumpf bestimmen
+        remaining_cards = distribute_cards(cards, current_round, playerlist)
+        trump_color = choose_trump(remaining_cards, current_round, playerlist)
 
-        #print(f" Startspieler: {spielerliste[runde % len(spielerliste) - 1]}")
-        #print(f" Trumpffarbe: {trumpf} | {runde} Karten pro Spieler")
-
-
-        tabelle = spiele_runde(runde, trumpf, tabelle, runden_anzahl, spielerliste)
+        #print(f" Startplayer: {playerlist[round % len(playerlist) - 1]}")
+        #print(f" Trumpcolor: {trump_color} | {round} cards per player")
 
 
-    #print("\n Das Spiel ist vorbei.")
+        table = play_round(current_round, trump_color, table, round_number, playerlist)
+
+
+    #print("\n Game is over.")
 
 
 
-def teile_karten_aus(karten, anzahl_karten, spielerliste):
-    for i in range(anzahl_karten):
-        for spieler in spielerliste:
-            oberste_karte = karten.pop(0)
-            spieler.karten_auf_der_hand.append(oberste_karte)
+def distribute_cards(cards, number_of_cards, playerlist):
+    for i in range(number_of_cards):
+        for player in playerlist:
+            top_card = cards.pop(0)
+            player.cards_in_hand.append(top_card)
 
-    return karten
+    return cards
 
-def bestimme_trumpf(restkarten, runde, spielerliste):
-    if restkarten:
-        trumpf_karte = restkarten[0]  # oberste Karte aufdecken
+def choose_trump(remaining_cards, current_round, playerlist):
+    if remaining_cards:
+        trump_card = remaining_cards[0]  # oberste card aufdecken
     else:
         return None
 
-    if trumpf_karte.color in colors:
-        trumpf_farbe = trumpf_karte.color
+    if trump_card.color in colors:
+        trump_color = trump_card.color
 
-    elif trumpf_karte.value == 0:
-        trumpf_farbe = None
+    elif trump_card.value == 0:
+        trump_color = None
 
-    elif trumpf_karte.value == 14:
-        haeufigkeiten = {farbe: 0 for farbe in colors}
-        start_spieler = spielerliste[(runde % len(spielerliste)) - 1]
-
-
-        for karte in start_spieler.karten_auf_der_hand:
-            farbe = karte.color
-            if farbe in colors:                                                   #ki
-               haeufigkeiten[farbe] = haeufigkeiten.get(farbe,0) + 1
-
-        #Ersatztrumpf für Zauberer finden --> häufigste Farbe bei aggressiven Spielstil
-
-        if start_spieler.spielstil == "aggressiv":
-            trumpf_farbe = max(haeufigkeiten, key=haeufigkeiten.get)  #ki
-        else: trumpf_farbe = min(haeufigkeiten, key=haeufigkeiten.get)
-
-    return trumpf_farbe
+    elif trump_card.value == 14:
+        frequencies = {color: 0 for color in colors}
+        starting_player = playerlist[(current_round % len(playerlist)) - 1]
 
 
-def karten_bewerten(karten, trumpf_farbe, spielerliste, runde, spielstil):
-    anzahl_spieler = len(spielerliste)
+        for card in starting_player.cards_in_hand:
+            color = card.color
+            if color in colors:                                                   #ki
+               frequencies[color] = frequencies.get(color,0) + 1
+
+        #Ersatztrumpf für wizard finden --> häufigste color bei aggressiven playing_style
+
+        if starting_player.playing_style == "aggressive":
+            trump_color = max(frequencies, key=frequencies.get)  #ki
+        else: trump_color = min(frequencies, key=frequencies.get)
+
+    return trump_color
+
+
+def evaluate_cards(cards, trump_color, playerlist, current_round, playing_style):
+    number_of_players = len(playerlist)
     total_prob = 0
 
-    for karte in karten:
-        prob = 0  # Wahrscheinlichkeit, dass diese Karte einen Stich macht
+    for card in cards:
+        prob = 0  # Wahrscheinlichkeit, dass diese card einen Stich macht
 
-        if karte.value == 14:
+        if card.value == 14:
             prob = 0.95
 
-        elif karte.value == 0:
+        elif card.value == 0:
             prob = 0.05
 
-        elif karte.color == trumpf_farbe:
-            # Wertigkeit im Verhältnis zu den Spielern
-            prob = (karte.value / 13) * 0.8
-            if runde < 5:
+        elif card.color == trump_color:
+            # Wertigkeit im Verhältnis zu den playern
+            prob = (card.value / 13) * 0.8
+            if current_round < 5:
                 prob += 0.1
-            if karte.value > 10: prob += 0.15
+            if card.value > 10: prob += 0.15
 
 
         else:
-            # Je mehr Spieler, desto wahrscheinlicher wird die Farbe gestochen (Trumpf oder höher)
-            basis_prob = (karte.value / 13)
-            # Risiko-Skalierung: Bei vielen Spielern sinkt die Chance einer normalen Karte extrem
-            spieler_malus = 0.75 ** (anzahl_spieler - 1)
-            prob = basis_prob * spieler_malus
+            # Je mehr player, desto wahrscheinlicher wird die color gestochen (Trumpf oder höher)
+            basis_prob = (card.value / 13)
+            # Risiko-Skalierung: Bei vielen playern sinkt die Chance einer normalen card extrem
+            player_malus = 0.75 ** (number_of_players - 1)
+            prob = basis_prob * player_malus
 
-            # In hohen Runden (viele Karten) werden kleine Zahlen wertlos
-            if runde > 5 and karte.value < 8:
+            # In hohen roundn (viele cards) werden kleine Zahlen wertlos
+            if current_round > 5 and card.value < 8:
                 prob *= 0.5
 
         total_prob += prob
 
-    # Wir runden mathematisch (0.5 wird aufgerundet), statt nur abzuschneiden
-    anzahl_stiche = round(total_prob)
+    # Wir roundn mathematisch (0.5 wird aufgeroundt), statt nur abzuschneiden
+    number_of_tricks = round(total_prob)
 
-    # Sicherstellen, dass in Runde 1 bei einer starken Karte mindestens 1 geboten wird
-    if runde == 1 and total_prob > 0.4:
+    # Sicherstellen, dass in round 1 bei einer starken card mindestens 1 geboten wird
+    if current_round == 1 and total_prob > 0.4:
         return 1
 
 
-    if spielstil == "aggressiv":
-        anzahl_stiche = math.floor(total_prob + 0.65)
+
+    if playing_style == "aggressive":
+        number_of_tricks = math.floor(total_prob + 0.7)
     else:
-        # Normales Runden
-        anzahl_stiche = round(total_prob)
+        # Normales roundn
+        number_of_tricks = round(total_prob)
 
-    return min(anzahl_stiche, len(karten))
-
-
-def spiele_stich(spielerliste, start_spieler_index, trumpf_farbe, runde, tabelle, stiche_dieser_runde):
-    stich_karten = {}
-    bedien_farbe = ""
-    aktuelle_gewinn_karte = None
-    gewinner = None
-
-    for i in range(len(spielerliste)):
-
-        aktiver_spieler = spielerliste[(start_spieler_index + i) % len(spielerliste)]
-        #print(aktiver_spieler)
-
-        # 1. Daten aus der Tabelle holen
-        geplante_stiche = tabelle.loc[runde, (aktiver_spieler.name, 'Angesagt')]
-        # 'Gemacht' tracken wir hier besser lokal oder über eine Variable,
-        # da die Tabelle erst am Ende der Runde befüllt wird
-        aktuell_gemachte_stiche = stiche_dieser_runde[aktiver_spieler.name]
-
-        will_stich = aktuell_gemachte_stiche < geplante_stiche
-
-        # finde alle erlaubten Karten
-        moegliche_karten = finde_erlaubte_karten_für_Zug(aktiver_spieler.karten_auf_der_hand, bedien_farbe)
-
-        #prüfen, welche höchste karte ist und , ob meine ggf größer
-        #hoechste_karte = bestimme_hoechste_karte(stich_karten, bedien_farbe, trumpf_farbe)
+    return min(number_of_tricks, len(cards))
 
 
-        gelegte_karte = (schlaue_karte_auswaehlen
-                         (moegliche_karten, aktuelle_gewinn_karte, stich_karten, bedien_farbe, trumpf_farbe, will_stich, spielstil=aktiver_spieler.spielstil))
+def play_trick(playerlist, starting_player_index, trump_color, current_round, table, number_of_tricks_in_round):
+    trick_cards = {}
+    operating_color = ""
+    current_winning_card = None
+    winner = None
 
-        if bedien_farbe == "" and gelegte_karte.color != "":
-            bedien_farbe = gelegte_karte.color
+    for i in range(len(playerlist)):
 
-        # Jetzt prüfen, ob die neue Karte (vielleicht die erste Farbkarte nach einem Narren) führt
-        if aktuelle_gewinn_karte is None or ist_staerker(gelegte_karte, aktuelle_gewinn_karte, bedien_farbe, trumpf_farbe):
-            aktuelle_gewinn_karte = gelegte_karte
-            gewinner = aktiver_spieler.name
+        active_player = playerlist[(starting_player_index + i) % len(playerlist)]
+        #print(active_player)
+
+        # 1. Daten aus der table holen
+        planned_tricks = table.loc[current_round, (active_player.name, 'announced_tricks')]
+        # "tricks_made" tracken wir hier besser lokal oder über eine Variable,
+        # da die table erst am Ende der round befüllt wird
+        current_made_tricks = number_of_tricks_in_round[active_player.name]
+
+        wants_trick = current_made_tricks < planned_tricks
+
+        # finde alle erlaubten cards
+        possible_cards = permitted_cards_for_move(active_player.cards_in_hand, operating_color)
 
 
-        aktiver_spieler.karten_auf_der_hand.remove(gelegte_karte)
-        stich_karten[aktiver_spieler.name] = gelegte_karte
+        played_card = (choose_smart_card
+                         (possible_cards, current_winning_card, trick_cards, operating_color, trump_color, playerlist, wants_trick, playing_style=active_player.playing_style))
+
+        if operating_color == "" and played_card.color != "":
+            operating_color = played_card.color
+
+        # Jetzt prüfen, ob die neue card (vielleicht die erste Farbcard nach einem Narren) führt
+        if current_winning_card is None or is_stronger(played_card, current_winning_card, operating_color, trump_color):
+            current_winning_card = played_card
+            winner = active_player.name
+
+
+        active_player.cards_in_hand.remove(played_card)
+        trick_cards[active_player.name] = played_card
 
 
 
-    #print(f"Der Stich: {stich_karten}")
-    #gewinner, karte = gewinner_des_stiches(stich_karten, bedien_farbe, trumpf_farbe)
-    #print(f"Gewinner des Stiches ist: {gewinner} mit {karte}")
+    #print(f"Der Stich: {trick_cards}")
+    #winner, card = winner_of_the_trick(trick_cards, operating_color, trump_color)
+    #print(f"winner des tricks ist: {winner} mit {card}")
 
-    return gewinner
-
-
+    return winner
 
 
+def choose_smart_card(cards, highest_trick_card, trick_cards, operating_color, trump_color, playerlist, wants_trick=True, playing_style="normal"):
 
-def schlaue_karte_auswaehlen(karten, hoechste_stich_karte, stich_karten, bedien_farbe, trumpf_farbe, spielerliste, will_stich_machen=True, spielstil="normal"):
+    winner_cards = []
+    loser_cards = []
 
-    gewinner_karten = []
-    verlierer_karten = []
-
-    for karte in karten:
-        # Wenn noch keine Karte liegt, gewinnt man (außer mit Narr)
-        if hoechste_stich_karte is None:
-            if karte.value > 0:
-                gewinner_karten.append(karte)
+    for card in cards:
+        # Wenn noch keine card liegt, gewinnt man (außer mit Narr)
+        if highest_trick_card is None:
+            if card.value > 0:
+                winner_cards.append(card)
             else:
-                verlierer_karten.append(karte)
-        # Ansonsten: Prüfung gegen die aktuell beste Karte
-        elif ist_staerker(karte, hoechste_stich_karte, bedien_farbe, trumpf_farbe):
-            gewinner_karten.append(karte)
+                loser_cards.append(card)
+        # Ansonsten: Prüfung gegen die aktuell beste card
+        elif is_stronger(card, highest_trick_card, operating_color, trump_color):
+            winner_cards.append(card)
         else:
-            verlierer_karten.append(karte)
+            loser_cards.append(card)
 
     # 2. Strategie anwenden
-    if will_stich_machen:
-        if gewinner_karten:
-            if spielstil == "aggressiv":
-                if not stich_karten:
-                    trumpf_karten = [karte for karte in gewinner_karten if karte.color == trumpf_farbe]
-                    if trumpf_karten:
-                        return max(trumpf_karten, key=lambda karte: karte.value)
-                # AGGRESSIV: Nimm die HÖCHSTE Karte, die gewinnt (den "Sack zumachen")
-                return max(gewinner_karten, key=lambda karte: karte.value)
+    if wants_trick:
+        if winner_cards:
+            if playing_style == "aggressive":
+                if not trick_cards:
+                    trump_cards = [card for card in winner_cards if card.color == trump_color]
+                    if trump_cards:
+                        return max(trump_cards, key=lambda card: card.value)
+                # AGGRESSIV: Nimm die HÖCHSTE card, die gewinnt (den "Sack zumachen")
+                return max(winner_cards, key=lambda card: card.value)
             else:
-                # NORMAL: Nimm die kleinste Karte, die gerade so sticht (Sparen)
-                return min(gewinner_karten, key=lambda karte: karte.value)
+                # NORMAL: Nimm die kleinste card, die gerade so sticht (Sparen)
+                return min(winner_cards, key=lambda card: card.value)
         else:
-            # Kann nicht gewinnen -> kleinste Karte wegwerfen
-            normale_farben = [karte for karte in verlierer_karten if karte.color != trumpf_farbe and karte.value not in [0,14]]
-            if normale_farben:
-                return min(normale_farben, key=lambda karte: karte.value)
-            return min(karten, key=lambda karte: karte.value)
+            # Kann nicht gewinnen -> kleinste card wegwerfen
+            normal_color_cards = [card for card in loser_cards if card.color != trump_color and card.value not in [0,14]]
+            if normal_color_cards:
+                return min(normal_color_cards, key=lambda card: card.value)
+            return min(cards, key=lambda card: card.value)
 
     else:
-        if verlierer_karten:
-            zauberer_verlierer = [karte for karte in verlierer_karten if karte.value == 14]
-            if zauberer_verlierer:
-                return zauberer_verlierer[0]
+        if loser_cards:
+            wizards = [card for card in loser_cards if card.value == 14]
+            if wizards:
+                return wizards[0]
 
-            truempfe_in_verlierer = [karte for karte in verlierer_karten if karte.color == trumpf_farbe]
+            trump_cards = [card for card in loser_cards if card.color == trump_color]
 
-            if truempfe_in_verlierer:
+            if trump_cards:
                 # Werfe den höchsten Trumpf ab, der gerade NICHT sticht
-                return max(truempfe_in_verlierer, key=lambda k: k.value)
+                return max(trump_cards, key=lambda card: card.value)
 
-            # Wenn kein Trumpf zum Abwerfen da ist, nimm die höchste normale Karte
-            return max(verlierer_karten, key=lambda k: k.value)
+            # Wenn kein Trumpf zum Abwerfen da ist, nimm die höchste normale card
+            return max(loser_cards, key=lambda card: card.value)
         else:
-            # Muss leider gewinnen -> kleinste Karte opfern
-            anzahl_karten_im_stich = len(stich_karten)
-            noch_spieler_dran = anzahl_karten_im_stich < (len(spielerliste)-1)
-            if noch_spieler_dran:
-                return min(karten, key=lambda karte: karte.value)
+            # Muss leider gewinnen -> kleinste card opfern
+            number_of_cards_in_trick = len(trick_cards)
+            still_players_left = number_of_cards_in_trick < (len(playerlist)-1)
+            if still_players_left:
+                return min(cards, key=lambda card: card.value)
             else:
-                return max(karten, key=lambda karte: karte.value)
+                return max(cards, key=lambda card: card.value)
 
 
-def ist_staerker(neue_karte, beste_bisher, bedien_farbe, trumpf_farbe):
-    # 1. Zauberer-Regel: Der erste Zauberer im Stich gewinnt immer.
-    # Wenn die Karte, die bereits führt, ein Zauberer (14) ist,
-    # kann keine nachfolgende Karte sie mehr schlagen.
-    if beste_bisher.value == 14:
+def is_stronger(new_card, best_card_so_far, operating_color, trump_color):
+    # 1. wizard-Regel: Der erste wizard im Stich gewinnt immer.
+    # Wenn die card, die bereits führt, ein wizard (14) ist,
+    # kann keine nachfolgende card sie mehr schlagen.
+    if best_card_so_far.value == 14:
         return False
 
-    # Wenn die neue Karte ein Zauberer ist (und die beste bisher keiner war), führt sie jetzt.
-    if neue_karte.value == 14:
+    # Wenn die neue card ein wizard ist (und die beste bisher keiner war), führt sie jetzt.
+    if new_card.value == 14:
         return True
 
-    # 2. Narren-Regel: Ein Narr (0) kann niemals eine Karte schlagen, die bereits führt.
-    if neue_karte.value == 0:
+    # 2. Narren-Regel: Ein Narr (0) kann niemals eine card schlagen, die bereits führt.
+    if new_card.value == 0:
         return False
 
     # 3. Trumpf-Logik:
-    # Neue Karte ist Trumpf, die beste bisherige aber nicht.
-    if neue_karte.color == trumpf_farbe and beste_bisher.color != trumpf_farbe:
+    # Neue card ist Trumpf, die beste bisherige aber nicht.
+    if new_card.color == trump_color and best_card_so_far.color != trump_color:
         return True
     # Beide sind Trumpf -> der höhere Wert gewinnt.
-    if neue_karte.color == trumpf_farbe and beste_bisher.color == trumpf_farbe:
-        return neue_karte.value > beste_bisher.value
+    if new_card.color == trump_color and best_card_so_far.color == trump_color:
+        return new_card.value > best_card_so_far.value
 
-    # 4. Bedienfarben-Logik:
-    # Neue Karte bedient die Farbe, die beste bisherige ist aber weder Trumpf noch Bedienfarbe.
-    if neue_karte.color == bedien_farbe and beste_bisher.color != bedien_farbe:
-        # (Da wir oben Trumpf schon geprüft haben, wissen wir hier: beste_bisher ist kein Trumpf)
+    # 4. Bediencolorn-Logik:
+    # Neue card bedient die color, die beste bisherige ist aber weder Trumpf noch Bediencolor.
+    if new_card.color == operating_color and best_card_so_far.color != operating_color:
+        # (Da wir oben Trumpf schon geprüft haben, wissen wir hier: best_card_so_far ist kein Trumpf)
         return True
-    # Beide haben die Bedienfarbe -> der höhere Wert gewinnt.
-    if neue_karte.color == bedien_farbe and beste_bisher.color == bedien_farbe:
-        return neue_karte.value > beste_bisher.value
+    # Beide haben die Bediencolor -> der höhere Wert gewinnt.
+    if new_card.color == operating_color and best_card_so_far.color == operating_color:
+        return new_card.value > best_card_so_far.value
 
     # 5. Alle anderen Fälle:
-    # Wenn die neue Karte eine falsche Farbe hat (Abwurf) oder kleiner ist, gewinnt sie nicht.
+    # Wenn die neue card eine falsche color hat (Abwurf) oder kleiner ist, gewinnt sie nicht.
     return False
 
 
@@ -469,67 +457,67 @@ def ist_staerker(neue_karte, beste_bisher, bedien_farbe, trumpf_farbe):
 
 
 
-def finde_erlaubte_karten_für_Zug(karten, bedien_farbe):
-    if not bedien_farbe:
-        return karten
+def permitted_cards_for_move(cards, operating_color):
+    if not operating_color:
+        return cards
 
-    bedien_farbe_karten = [karte for karte in karten if karte.color == bedien_farbe]
-    if not bedien_farbe_karten:
-        return karten
+    operating_color_cards = [card for card in cards if card.color == operating_color]
+    if not operating_color_cards:
+        return cards
 
-    erlaubte_karten = [karte for karte in karten if karte.color == bedien_farbe or karte.color == ""]
-    return erlaubte_karten
-
-
-
-def wie_viele_gemachte_stiche(spieler, stichgewinner):
-    anzahl_gemachte_stiche = stichgewinner.count(spieler.name)
-    return anzahl_gemachte_stiche
+    permitted_cards = [card for card in cards if card.color == operating_color or card.color == ""]
+    return permitted_cards
 
 
 
+def number_of_made_tricks(player, trick_winner):
+    number_of_tricks_made = trick_winner.count(player.name)
+    return number_of_tricks_made
 
-def spiele_spielen(anzahl_spiele, spielerliste):
-    for i in range (anzahl_spiele):
-        starte_spiel(1, spielerliste)
 
 
-def gewinn_wahrscheinlichkeiten(gewinner_liste, anzahl_spiele, spielerliste):
-    wahrscheinlichkeiten = {spieler.name: gewinner_liste.count(spieler.name) / anzahl_spiele for spieler in spielerliste}
 
-    df = pd.DataFrame(wahrscheinlichkeiten, index=["Gewinnchance"])
+def play_games(number_of_games, playerlist):
+    for i in range (number_of_games):
+        start_game(1, playerlist)
+
+
+def winning_probabilities(winner_liste, number_of_games, playerlist):
+    probabilities = {player.name: winner_liste.count(player.name) / number_of_games for player in playerlist}
+
+    df = pd.DataFrame(probabilities, index=["winningchance"])
 
     #Für die Anzeige in der Konsole in Prozent umwandeln
-    df_prozent = df.map(lambda x: f"{x * 100:.1f}%")
+    df_percent= df.map(lambda x: f"{x * 100:.1f}%")
 
-    #Speichern (df_prozent nutzen)
-    export_mit_metadaten(df_prozent, "letzte_simulation", seed=42)
+    #Speichern (df_percentnutzen)
+    export_with_metadata(df_percent, "last_simulation", seed=42)
 
-    return df_prozent
+    return df_percent
 
 
 
-def export_mit_metadaten(df, dateiname, seed=42):
+def export_with_metadata(df, dateiname, seed=42):
     """Speichert einen DataFrame mit Metadaten-Header in den reports-Ordner."""
 
     os.makedirs("reports", exist_ok=True) #erstelltOrdner reports falls er fehlt
 
-    zeitstempel = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     #Header-Zeilen zusammen mit # am Anfang
     header = [
         f"# Projekt: Wizard Simulation",
-        f"# Erstellungsdatum: {zeitstempel}",
+        f"# Erstellungsdatum: {timestamp}",
         f"# Verwendeter Seed: {seed}",
         f"# Status: Finales Ergebnis",
         "#"
     ]
 
-    pfad = f"reports/{dateiname}.csv"
+    path = f"reports/{dateiname}.csv"
 
     #Erst den Header schreiben, dann den DataFrame anhängen
-    with open(pfad, 'w', encoding='utf-8') as f:
+    with open(path, 'w', encoding='utf-8') as f:
         f.write("\n".join(header) + "\n")
         df.to_csv(f, index=True)
 
-    print(f"Ergebnisse erfolgreich gespeichert unter: {pfad}")
+    #print(f"Ergebnisse erfolgreich gespeichert unter: {path}")

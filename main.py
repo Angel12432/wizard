@@ -1,15 +1,28 @@
-from src.wizard_logic import lade_spieler_aus_config, spiele_spielen, gewinner_liste, gewinn_wahrscheinlichkeiten, lade_spieler_aus_config
+from src.wizard_logic import load_player_from_config, play_games, winner_list, winning_probabilities, load_player_from_config
 
 if __name__ == "__main__":
-    print("Wizard-Simulation startet")
 
-    spielerliste = lade_spieler_aus_config()
+    full_playerlist = load_player_from_config()
 
-    anzahl_spiele = int(input("Anzahl Spiele: "))
+    try:
+        n = int(input("How many players should participate? (3-6) ?: "))
+        if not (3 <= n <= 6):
+            print("Invalid number of players. Continue with 3 players.")
+            n = 3
+    except ValueError:
+        print("Input was not a number. Continue with 3 players.")
+        n = 3
 
-    spiele_spielen(anzahl_spiele, spielerliste)
+    print(f"Wizard simulation is starting with {n} players.")
+    print("Testo_Torsten is playing aggressive")
 
-    stats = gewinn_wahrscheinlichkeiten(gewinner_liste, anzahl_spiele, spielerliste)
-    print("\n Die Simulation ist beendet")
-    print(51*"-")
+    playerlist = full_playerlist[:n]
+
+    number_of_games = 500
+
+    play_games(number_of_games, playerlist)
+
+    stats = winning_probabilities(winner_list, number_of_games, playerlist)
+    print("\n Simulation is done.")
+    print(100*"-")
     print(stats)
