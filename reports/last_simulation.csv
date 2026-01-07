@@ -1,7 +1,7 @@
-# Projekt: Wizard Simulation
-# Erstellungsdatum: 2026-01-03 19:45:36
-# Verwendeter Seed: 42
-# Status: Finales Ergebnis
+# Project: Wizard Simulation
+# Creation Dte: 2026-01-07 19:38:37
+# Used Seed: 42
+# Status: Final Result
 #
-,Testo_Torsten,Gregor_samsa,Billy_Bonka,Fred_Firestone,Tom_Bombadil,Bartholomäus
-winningchance,9.0%,21.0%,24.0%,11.0%,17.0%,18.0%
+,Testo_Torsten,Gregor_samsa,Billy_Bonka,Fred_Firestone,Tom_Bombadil
+winningchance,0.0%,40.0%,10.0%,30.0%,20.0%
