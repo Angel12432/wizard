@@ -19,7 +19,6 @@ Fragestellung: Lohnt es sich, bei einer bestimmten Anzahl an Mitspielern in Wiza
 
 ```
 ├── configs
-├── models (safe model here and add path to your .env)
 ├── reports (simulation results will be stored here) 
 ├── src
 ├── main.py (to start the simulation) 
