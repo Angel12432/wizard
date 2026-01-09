@@ -5,8 +5,26 @@ This repository contains a Python program for **simulating the card game Wizard*
 The simulation plays 1000 complete games.There can be between 3 to 6 players. One specific player consistently follows an aggressive playing style. At the end, the console displays the aggressive player's win rate as a percentage.
 
 
+## Project Organization
+
+**Course**: Simulations Tools WI25/26
+
+**Authors:** Janis Müller, Philipp Engel 
+
+**Date:** 9 January 2026
 
 
+## Project Structure
+Fragestellung: Lohnt es sich, bei einer bestimmten Anzahl an Mitspielern in Wizard aggressiv zu spielen? 
+
+```
+├── configs
+├── models (safe model here and add path to your .env)
+├── reports (simulation results will be stored here) 
+├── src
+├── main.py (to start the simulation) 
+├── README.md         
+```
 
 
 ---
