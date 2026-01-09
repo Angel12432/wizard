@@ -2,7 +2,12 @@
 
 This repository contains a Python program for **simulating the card game Wizard** in order to investigate the success rate of an aggressive playing strategy.
 
-The simulation plays 1000 complete games. One specific player consistently follows an aggressive playing style. At the end, the console displays the aggressive player's win rate as a percentage.
+The simulation plays 1000 complete games.There can be between 3 to 6 players. One specific player consistently follows an aggressive playing style. At the end, the console displays the aggressive player's win rate as a percentage.
+
+
+
+
+
 
 ---
 
@@ -10,7 +15,7 @@ The simulation plays 1000 complete games. One specific player consistently follo
 
 1. Clone the repository
 
-git clone [https://github.com/Ihr-Benutzername/Ihr-Repository-Name.git](https://github.com/Ihr-Benutzername/Ihr-Repository-Name.git)
+git clone [https://github.com/JanisMueller05/wizard.git](https://github.com/JanisMueller05/wizard.git)
 cd Your-repository-name
 
 2. Requirements
